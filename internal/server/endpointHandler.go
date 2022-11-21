@@ -40,7 +40,7 @@ func (eHandler *endpointHanlder) Get(w http.ResponseWriter, r *http.Request) {
 
 	endpointPath, endpointExists := eHandler.Endpoints[endpoint]
 	if !endpointExists {
-		errh.Warn(log.ErrEndpointNotFound("endpoint"))
+		errh.Warn(log.ErrEndpointNotFound(endpoint))
 		return
 	}
 
