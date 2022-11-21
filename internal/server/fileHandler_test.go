@@ -10,7 +10,7 @@ import (
 	"path"
 	"testing"
 
-	"github.com/aigic8/gosyn/internal/server/utils"
+	"github.com/aigic8/gosyn/internal/server/log"
 	"github.com/cespare/xxhash"
 	"github.com/gorilla/mux"
 	"gotest.tools/v3/assert"
@@ -50,7 +50,7 @@ func TestFileHandlerGet(t *testing.T) {
 		{Name: "out of endpoint", File: "normal/../sample.txt", Status: http.StatusBadRequest},
 	}
 
-	logger, err := utils.NewLogger()
+	logger, err := log.NewLogger()
 	if err != nil {
 		panic(err)
 	}
@@ -120,7 +120,7 @@ func TestFileGetHash(t *testing.T) {
 		{Name: "out of endpoint", File: "normal/../sample.txt", Status: http.StatusBadRequest},
 	}
 
-	logger, err := utils.NewLogger()
+	logger, err := log.NewLogger()
 	if err != nil {
 		panic(err)
 	}

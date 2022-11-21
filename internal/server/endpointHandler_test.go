@@ -9,6 +9,7 @@ import (
 	"path"
 	"testing"
 
+	"github.com/aigic8/gosyn/internal/server/log"
 	"github.com/aigic8/gosyn/internal/server/utils"
 	"github.com/gorilla/mux"
 	"gotest.tools/v3/assert"
@@ -18,7 +19,7 @@ type endpointGetTestCase struct {
 	Name     string
 	Endpoint string
 	Status   int
-	Tree     map[string]TreePath
+	Tree     map[string]utils.TreePath
 }
 
 type fileInfo struct {
@@ -68,33 +69,33 @@ func TestEndpointGet(t *testing.T) {
 		"random":  path.Join(base, "random"),
 	}
 
-	normalTree := map[string]TreePath{
-		"seether": {Name: "seether", IsDir: true, Children: map[string]TreePath{
+	normalTree := map[string]utils.TreePath{
+		"seether": {Name: "seether", IsDir: true, Children: map[string]utils.TreePath{
 			"truth.txt": {
 				Name:     "truth.txt",
 				IsDir:    false,
 				Size:     truthInfo.Size(),
 				LastMod:  truthInfo.ModTime(),
-				Children: map[string]TreePath{},
+				Children: map[string]utils.TreePath{},
 			},
 		}},
 	}
-	recursiveTree := map[string]TreePath{
-		"pink-floyd": {Name: "pink-floyd", IsDir: true, Children: map[string]TreePath{
-			"freq": {Name: "freq", IsDir: true, Children: map[string]TreePath{
+	recursiveTree := map[string]utils.TreePath{
+		"pink-floyd": {Name: "pink-floyd", IsDir: true, Children: map[string]utils.TreePath{
+			"freq": {Name: "freq", IsDir: true, Children: map[string]utils.TreePath{
 				"time.txt": {
 					Name:     "time.txt",
 					IsDir:    false,
 					Size:     timeInfo.Size(),
 					LastMod:  timeInfo.ModTime(),
-					Children: map[string]TreePath{}},
+					Children: map[string]utils.TreePath{}},
 			}},
 			"wish-you-where-here.txt": {
 				Name:     "wish-you-where-here.txt",
 				IsDir:    false,
 				Size:     wereHereInfo.Size(),
 				LastMod:  wereHereInfo.ModTime(),
-				Children: map[string]TreePath{},
+				Children: map[string]utils.TreePath{},
 			},
 		}},
 	}
@@ -106,7 +107,7 @@ func TestEndpointGet(t *testing.T) {
 		{Name: "file endpoint", Endpoint: "random", Status: http.StatusInternalServerError},
 	}
 
-	logger, err := utils.NewLogger()
+	logger, err := log.NewLogger()
 	if err != nil {
 		panic(err)
 	}
@@ -146,7 +147,7 @@ func TestEndpointGetAll(t *testing.T) {
 		"kaboos":  "songs/kaboos",
 	}
 
-	logger, err := utils.NewLogger()
+	logger, err := log.NewLogger()
 	if err != nil {
 		panic(err)
 	}
