@@ -4,12 +4,12 @@ import (
 	"encoding/hex"
 	"errors"
 	"io"
-	"log"
 	"net/http"
 	"os"
 	"path"
 	"strings"
 
+	"github.com/aigic8/gosyn/internal/server/utils"
 	"github.com/cespare/xxhash"
 	"github.com/gorilla/mux"
 )
@@ -17,31 +17,27 @@ import (
 type fileHandler struct {
 	Endpoints   map[string]string
 	MaxHashSize int64
+	logger      *utils.Logger
 }
 
 func (fHandler *fileHandler) Get(w http.ResponseWriter, r *http.Request) {
+	errh := utils.NewAPIErrHandler(fHandler.logger, r, w)
 	vars := mux.Vars(r)
 	fileVar := strings.TrimSpace(vars["file"])
 	if fileVar == "" {
-		w.WriteHeader(http.StatusBadRequest)
-		w.Write([]byte("file is empty"))
-		log.Printf("no file var spicified in request\n")
+		errh.Warn(utils.ErrVarNotFound("file"))
 		return
 	}
 
 	endpoint, filePath, err := splitEndpointAndFile(fileVar)
 	if err != nil {
-		w.WriteHeader(http.StatusBadRequest)
-		w.Write([]byte("sent a bad file descriptor"))
-		log.Printf("error spliting endpoint and filePath: %v\n", err)
+		errh.Warn(utils.ErrBadFileDesc(fileVar, err))
 		return
 	}
 
 	endpointPath, endpointExists := fHandler.Endpoints[endpoint]
 	if !endpointExists {
-		w.WriteHeader(http.StatusNotFound)
-		w.Write([]byte("endpoint not found"))
-		log.Printf("endpoint '%s' not found\n", endpoint)
+		errh.Warn(utils.ErrEndpointNotFound(endpoint))
 		return
 	}
 
@@ -50,29 +46,22 @@ func (fHandler *fileHandler) Get(w http.ResponseWriter, r *http.Request) {
 	stat, err := os.Stat(fullPath)
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) {
-			w.WriteHeader(http.StatusNotFound)
-			w.Write([]byte("file not found"))
-			log.Printf("file '%s' not exist:\n", fullPath)
+			errh.Warn(utils.ErrFileNotFound(fileVar))
 			return
 		}
-		w.WriteHeader(http.StatusInternalServerError)
-		w.Write([]byte("internal server error happened"))
-		log.Printf("error stating '%s': %v\n", fullPath, err)
+		errh.Warn(utils.ErrUnknown("err stating file: " + err.Error()))
 		return
 	}
 
 	if stat.IsDir() {
-		w.WriteHeader(http.StatusBadRequest)
-		w.Write([]byte("path is a dir"))
-		log.Printf("tried to download path '%s' which is a dir\n", fullPath)
+		errh.Warn(utils.ErrPathIsDir(fileVar))
 		return
 	}
 
 	file, err := os.Open(fullPath)
 	if err != nil {
-		w.WriteHeader(http.StatusBadRequest)
-		w.Write([]byte("there is an error with file"))
-		log.Printf("error opening file '%s': %v\n", fullPath, err)
+		errh.Err(utils.ErrUnknown("err opening file: " + err.Error()))
+		return
 	}
 
 	// TODO use brotli or gzip for text files
@@ -81,29 +70,25 @@ func (fHandler *fileHandler) Get(w http.ResponseWriter, r *http.Request) {
 
 // TODO is it useful?
 func (fHandler *fileHandler) GetHash(w http.ResponseWriter, r *http.Request) {
+	// TODO get hash is very similar to GetFile should export similar functions
+	errh := utils.NewAPIErrHandler(fHandler.logger, r, w)
 	vars := mux.Vars(r)
 	fileVar := strings.TrimSpace(vars["file"])
 
 	if fileVar == "" {
-		w.WriteHeader(http.StatusBadRequest)
-		w.Write([]byte("empty/no file parameter"))
-		log.Printf("empty/no file parameter\n")
+		errh.Warn(utils.ErrVarNotFound("file"))
 		return
 	}
 
 	endpoint, filePath, err := splitEndpointAndFile(fileVar)
 	if err != nil {
-		w.WriteHeader(http.StatusBadRequest)
-		w.Write([]byte("sent a bad file descriptor"))
-		log.Printf("error spliting endpoint and filePath: %v\n", err)
+		errh.Warn(utils.ErrBadFileDesc(fileVar, err))
 		return
 	}
 
 	endpointPath, endpointExists := fHandler.Endpoints[endpoint]
 	if !endpointExists {
-		w.WriteHeader(http.StatusNotFound)
-		w.Write([]byte("endpoint not found"))
-		log.Printf("endpoint '%s' not found\n", endpoint)
+		errh.Warn(utils.ErrEndpointNotFound(endpoint))
 		return
 	}
 
@@ -111,36 +96,26 @@ func (fHandler *fileHandler) GetHash(w http.ResponseWriter, r *http.Request) {
 	fileInfo, err := os.Stat(fullPath)
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) {
-			w.WriteHeader(http.StatusNotFound)
-			w.Write([]byte("file not found"))
-			log.Printf("file '%s' not found\n", fullPath)
+			errh.Warn(utils.ErrFileNotFound(fileVar))
 			return
 		}
-		w.WriteHeader(http.StatusInternalServerError)
-		w.Write([]byte("internal server error happened!"))
-		log.Printf("error stating file '%s': %v\n", fullPath, err)
+		errh.Warn(utils.ErrUnknown("err stating file: " + err.Error()))
 		return
 	}
 
 	if fileInfo.IsDir() {
-		w.WriteHeader(http.StatusBadRequest)
-		w.Write([]byte("error with file"))
-		log.Printf("wanted to get hash of dir '%s'", fullPath)
+		errh.Warn(utils.ErrPathIsDir(fileVar))
 		return
 	}
 
 	if fHandler.MaxHashSize > 0 && fileInfo.Size() > fHandler.MaxHashSize {
-		w.WriteHeader(http.StatusBadRequest) // TODO maybe a better status code?
-		w.Write([]byte("file is bigger than max hash size"))
+		errh.Warn(utils.ErrFileTooBigToHash(fileVar, fHandler.MaxHashSize))
 		return
 	}
 
-	// TODO add option to hash file smartly like rsync
 	hash, err := hashFile(fullPath)
 	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		w.Write([]byte("internal server error happened!"))
-		log.Printf("error hashing file '%s': %v", fullPath, err)
+		errh.Err(utils.ErrUnknown("err hashing file: " + err.Error()))
 		return
 	}
 
@@ -149,6 +124,7 @@ func (fHandler *fileHandler) GetHash(w http.ResponseWriter, r *http.Request) {
 }
 
 func (fHandler *fileHandler) AddNew(w http.ResponseWriter, r *http.Request) {
+	errh := utils.NewAPIErrHandler(fHandler.logger, r, w)
 	rawPath := strings.TrimSpace(r.Header.Get("x-file-path"))
 
 	rawRecursive := strings.TrimSpace(r.Header.Get("x-recursive"))
@@ -158,25 +134,19 @@ func (fHandler *fileHandler) AddNew(w http.ResponseWriter, r *http.Request) {
 	force := rawForce == "true"
 
 	if rawPath == "" {
-		w.WriteHeader(http.StatusBadRequest)
-		w.Write([]byte("file path is not specified"))
-		log.Print("got request without x-file-path header")
+		errh.Warn(utils.ErrHeaderNotFound("filePath", "x-file-path"))
 		return
 	}
 
 	endpoint, filePath, err := splitEndpointAndFile(rawPath)
 	if err != nil {
-		w.WriteHeader(http.StatusBadRequest)
-		w.Write([]byte("file path is not valid"))
-		log.Printf("error parsing path: %v\n", err)
+		errh.Warn(utils.ErrBadFileDesc(rawPath, err))
 		return
 	}
 
 	endpointPath, endpointExists := fHandler.Endpoints[endpoint]
 	if !endpointExists {
-		w.WriteHeader(http.StatusNotFound)
-		w.Write([]byte("endpoint not found"))
-		log.Printf("endpoint '%s' not found\n", endpoint)
+		errh.Warn(utils.ErrEndpointNotFound(endpoint))
 		return
 	}
 
@@ -188,60 +158,44 @@ func (fHandler *fileHandler) AddNew(w http.ResponseWriter, r *http.Request) {
 		dir := path.Dir(fullPath)
 		if recursive {
 			if err = os.MkdirAll(dir, 0777); err != nil {
-				w.WriteHeader(http.StatusInternalServerError)
-				w.Write([]byte("internal server error happened"))
-				log.Printf("error making dir '%s': %v\n", dir, err)
+				errh.Warn(utils.ErrUnknown("err making dir: " + err.Error()))
 				return
 			}
 		}
 		dirStat, err := os.Stat(dir)
 		if err != nil {
 			if errors.Is(err, os.ErrNotExist) {
-				w.WriteHeader(http.StatusBadRequest)
-				w.Write([]byte("base directory does not exist"))
-				log.Printf("dir '%s' does not eixst\n", dir)
+				errh.Warn(utils.ErrDirNotExist(dir))
 				return
 			}
-			w.WriteHeader(http.StatusInternalServerError)
-			w.Write([]byte("internal server error happened"))
-			log.Printf("error stating path '%s': %v\n", dir, err)
+			errh.Err(utils.ErrUnknown("err getting dir stat: " + err.Error()))
 			return
 		}
 		if !dirStat.IsDir() {
-			w.WriteHeader(http.StatusBadRequest)
-			w.Write([]byte("base path is not a dir"))
-			log.Printf("path '%s' is not a dir:\n", dir)
+			errh.Err(utils.ErrUnknown("err making dir: " + err.Error()))
 			return
 		}
 	}
 
 	if fileStat.IsDir() {
-		w.WriteHeader(http.StatusBadRequest)
-		w.Write([]byte("dir with same path exist"))
-		log.Printf("can't create file '%s' beacuase same dir exists\n", fullPath)
+		errh.Warn(utils.ErrPathIsDir(rawPath))
 		return
 	}
 	if !force {
-		w.WriteHeader(http.StatusBadRequest)
-		w.Write([]byte("file already exists"))
-		log.Printf("can't create file '%s' beacuase same file exists\n", fullPath)
+		errh.Warn(utils.ErrFileExist(rawPath))
 		return
 	}
 
 	// TODO maybe use smart transfer like rsync?
 	file, err := os.Create(fullPath)
 	if err != nil {
-		w.WriteHeader(http.StatusBadRequest)
-		w.Write([]byte("internal server error"))
-		log.Printf("can't create file '%s': %v\n", fullPath, err)
+		errh.Err(utils.ErrUnknown("error creating file: " + err.Error()))
 		return
 	}
 
 	defer r.Body.Close()
 	if _, err = io.Copy(file, r.Body); err != nil {
-		w.WriteHeader(http.StatusBadRequest)
-		w.Write([]byte("internal server error"))
-		log.Printf("couldnt write file data '%s': %v\n", fullPath, err)
+		errh.Err(utils.ErrUnknown("error writing response: " + err.Error()))
 		return
 	}
 

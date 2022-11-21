@@ -9,6 +9,7 @@ import (
 	"path"
 	"testing"
 
+	"github.com/aigic8/gosyn/internal/server/utils"
 	"github.com/gorilla/mux"
 	"gotest.tools/v3/assert"
 )
@@ -66,7 +67,6 @@ func TestEndpointGet(t *testing.T) {
 		"pink":    path.Join(base, "pink-floyd"),
 		"random":  path.Join(base, "random"),
 	}
-	eHandlers := endpointHanlder{Endpoints: endpoints}
 
 	normalTree := map[string]TreePath{
 		"seether": {Name: "seether", IsDir: true, Children: map[string]TreePath{
@@ -106,12 +106,18 @@ func TestEndpointGet(t *testing.T) {
 		{Name: "file endpoint", Endpoint: "random", Status: http.StatusInternalServerError},
 	}
 
+	logger, err := utils.NewLogger()
+	if err != nil {
+		panic(err)
+	}
+	eHandler := endpointHanlder{Endpoints: endpoints, logger: logger}
+
 	for _, tc := range cases {
 		t.Run(tc.Name, func(t *testing.T) {
 			r := httptest.NewRequest(http.MethodGet, "/", nil)
 			w := httptest.NewRecorder()
 			r = mux.SetURLVars(r, map[string]string{"endpoint": tc.Endpoint})
-			eHandlers.Get(w, r)
+			eHandler.Get(w, r)
 
 			res := w.Result()
 			defer res.Body.Close()
@@ -139,7 +145,12 @@ func TestEndpointGetAll(t *testing.T) {
 		"pink":    "pink-floyd",
 		"kaboos":  "songs/kaboos",
 	}
-	eHandler := endpointHanlder{Endpoints: endpoints}
+
+	logger, err := utils.NewLogger()
+	if err != nil {
+		panic(err)
+	}
+	eHandler := endpointHanlder{Endpoints: endpoints, logger: logger}
 
 	r := httptest.NewRequest(http.MethodGet, "/", nil)
 	w := httptest.NewRecorder()

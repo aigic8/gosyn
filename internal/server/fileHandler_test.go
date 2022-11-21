@@ -9,6 +9,7 @@ import (
 	"path"
 	"testing"
 
+	"github.com/aigic8/gosyn/internal/server/utils"
 	"github.com/cespare/xxhash"
 	"github.com/gorilla/mux"
 	"gotest.tools/v3/assert"
@@ -47,7 +48,11 @@ func TestFileHandlerGet(t *testing.T) {
 		{Name: "empty file name", File: "  ", Status: http.StatusBadRequest},
 	}
 
-	fHandler := fileHandler{Endpoints: endpoints, MaxHashSize: 1000}
+	logger, err := utils.NewLogger()
+	if err != nil {
+		panic(err)
+	}
+	fHandler := fileHandler{Endpoints: endpoints, MaxHashSize: 1000, logger: logger}
 
 	for _, tc := range testCases {
 		t.Run(tc.Name, func(t *testing.T) {
@@ -112,7 +117,11 @@ func TestFileGetHash(t *testing.T) {
 		{Name: "empty file name", File: "  ", Status: http.StatusBadRequest},
 	}
 
-	fHandler := fileHandler{Endpoints: endpoints, MaxHashSize: 50 * 1024 * 1024}
+	logger, err := utils.NewLogger()
+	if err != nil {
+		panic(err)
+	}
+	fHandler := fileHandler{Endpoints: endpoints, MaxHashSize: 50 * 1024 * 1024, logger: logger}
 
 	for _, tc := range testCases {
 		t.Run(tc.Name, func(t *testing.T) {

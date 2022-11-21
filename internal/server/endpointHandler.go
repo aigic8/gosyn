@@ -3,18 +3,19 @@ package server
 import (
 	"encoding/json"
 	"fmt"
-	"log"
 	"net/http"
 	"os"
 	"path"
 	"strings"
 	"time"
 
+	"github.com/aigic8/gosyn/internal/server/utils"
 	"github.com/gorilla/mux"
 )
 
 type endpointHanlder struct {
 	Endpoints map[string]string
+	logger    *utils.Logger
 }
 
 // TODO maybe use pointers for LastMod and Size? since they can be empty
@@ -27,37 +28,30 @@ type TreePath struct {
 }
 
 func (eHandler *endpointHanlder) Get(w http.ResponseWriter, r *http.Request) {
+	errh := utils.NewAPIErrHandler(eHandler.logger, r, w)
+
 	// TODO maybe a seperate validation layer?
 	vars := mux.Vars(r)
 	endpoint := strings.TrimSpace(vars["endpoint"])
 	if endpoint == "" {
-		w.WriteHeader(http.StatusBadRequest)
-		// TODO better error handling and logging
-		w.Write([]byte("endpoint is empty"))
-		log.Print("endpoint is empty")
+		errh.Warn(utils.ErrVarNotFound("endpoint"))
 		return
 	}
 
 	endpointPath, endpointExists := eHandler.Endpoints[endpoint]
 	if !endpointExists {
-		w.WriteHeader(http.StatusNotFound)
-		w.Write([]byte("endpoint does not exist"))
-		log.Println("endpoint does not exist")
+		errh.Warn(utils.ErrEndpointNotFound("endpoint"))
 		return
 	}
 
 	stat, err := os.Stat(endpointPath)
 	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		w.Write([]byte("there is a problem with this endpoint"))
-		log.Printf("error stating endpoint path '%s': %v\n", endpointPath, err)
+		errh.Warn(utils.ErrUnknown("error stating endpoint: " + err.Error()))
 		return
 	}
 
 	if !stat.IsDir() {
-		w.WriteHeader(http.StatusInternalServerError)
-		w.Write([]byte("there is a problem with this endpoint"))
-		log.Printf("endpoint '%s' is not a dir\n", endpointPath)
+		errh.Warn(utils.ErrUnknown(fmt.Sprintf("ednpoint '%s' is not a dir", endpointPath)))
 		return
 	}
 
@@ -73,17 +67,13 @@ func (eHandler *endpointHanlder) Get(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := makeTree(base, tree); err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		w.Write([]byte("internal server error happened"))
-		log.Printf("error making tree: %v", err)
+		errh.Err(utils.ErrUnknown("error making tree: " + err.Error()))
 		return
 	}
 
 	jsonData, err := json.Marshal(tree)
 	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		w.Write([]byte("internal server error happened"))
-		log.Printf("error marshaling json: %v", err)
+		errh.Err(utils.ErrUnknown("error marshaling json: " + err.Error()))
 		return
 	}
 
@@ -91,15 +81,15 @@ func (eHandler *endpointHanlder) Get(w http.ResponseWriter, r *http.Request) {
 }
 
 func (eHandler *endpointHanlder) GetAll(w http.ResponseWriter, r *http.Request) {
+	errh := utils.NewAPIErrHandler(eHandler.logger, r, w)
+
 	endpoints := make([]string, 0, len(eHandler.Endpoints))
 	for endpoint := range eHandler.Endpoints {
 		endpoints = append(endpoints, endpoint)
 	}
 	jsonData, err := json.Marshal(endpoints)
 	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		w.Write([]byte("internal server error happened"))
-		log.Printf("error marshaling json: %v", err)
+		errh.Err(utils.ErrUnknown("error marshaling json: " + err.Error()))
 		return
 	}
 
