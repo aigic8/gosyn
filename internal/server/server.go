@@ -51,6 +51,8 @@ func (server *Server) Start() error {
 func (server *Server) makeRoutes() *mux.Router {
 	r := mux.NewRouter()
 
+	// TODO add authentication middleware
+
 	eHandler := endpointHanlder{Endpoints: server.endpoints}
 	r.HandleFunc("endpoints/{endpoint}", eHandler.Get).Methods(http.MethodGet)
 	r.HandleFunc("endpoints/list", eHandler.GetAll).Methods(http.MethodGet)
