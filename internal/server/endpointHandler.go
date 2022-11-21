@@ -66,6 +66,7 @@ func (eHandler *endpointHanlder) Get(w http.ResponseWriter, r *http.Request) {
 		},
 	}
 
+	// TODO can be too expensive is the tree is too big? maybe add something like depth to it?
 	if err := utils.MakeTree(base, tree); err != nil {
 		errh.Err(log.ErrUnknown("error making tree: " + err.Error()))
 		return
