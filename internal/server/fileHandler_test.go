@@ -47,6 +47,7 @@ func TestFileHandlerGet(t *testing.T) {
 		{Name: "endpoint not exist", File: "not-normal/endpoint.txt", Status: http.StatusNotFound},
 		{Name: "file is dir", File: "normal/not-a-file", Status: http.StatusBadRequest},
 		{Name: "empty file name", File: "  ", Status: http.StatusBadRequest},
+		{Name: "out of endpoint", File: "normal/../sample.txt", Status: http.StatusBadRequest},
 	}
 
 	logger, err := utils.NewLogger()
@@ -116,6 +117,7 @@ func TestFileGetHash(t *testing.T) {
 		{Name: "endpoint not exist", File: "not-normal/endpoint.txt", Status: http.StatusNotFound},
 		{Name: "file is dir", File: "normal/not-a-file", Status: http.StatusBadRequest},
 		{Name: "empty file name", File: "  ", Status: http.StatusBadRequest},
+		{Name: "out of endpoint", File: "normal/../sample.txt", Status: http.StatusBadRequest},
 	}
 
 	logger, err := utils.NewLogger()

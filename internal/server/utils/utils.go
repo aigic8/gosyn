@@ -4,9 +4,26 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"os"
+	"path/filepath"
+	"strings"
 
 	"go.uber.org/zap"
 )
+
+func IsSubPath(parent, sub string) (bool, error) {
+	up := ".." + string(os.PathSeparator)
+
+	// path-comparisons using filepath.Abs don't work reliably according to docs (no unique representation).
+	rel, err := filepath.Rel(parent, sub)
+	if err != nil {
+		return false, err
+	}
+	if !strings.HasPrefix(rel, up) && rel != ".." {
+		return true, nil
+	}
+	return false, nil
+}
 
 type Logger struct {
 	Logger *zap.SugaredLogger
@@ -162,6 +179,15 @@ func ErrDirNotExist(dirPath string) HTTPErr {
 
 func ErrFileExist(filePath string) HTTPErr {
 	msg := "a file with same path '" + filePath + "' exists"
+	return &BasicHTTPErr{
+		status:  http.StatusBadRequest,
+		respMsg: msg,
+		logMsg:  msg,
+	}
+}
+
+func ErrOutOfEndpoint(path string, endpoint string) HTTPErr {
+	msg := fmt.Sprintf("path '%s' is out of endpoint '%s'", path, endpoint)
 	return &BasicHTTPErr{
 		status:  http.StatusBadRequest,
 		respMsg: msg,

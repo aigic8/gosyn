@@ -48,6 +48,16 @@ func (fHandler *fileHandler) Get(w http.ResponseWriter, r *http.Request) {
 
 	fullPath := path.Join(endpointPath, filePath)
 
+	isSubPath, err := utils.IsSubPath(endpointPath, fullPath)
+	if err != nil {
+		errh.Err(utils.ErrUnknown("error checking subpath: " + err.Error()))
+		return
+	}
+	if !isSubPath {
+		errh.Err(utils.ErrOutOfEndpoint(fileVar, endpoint))
+		return
+	}
+
 	stat, err := os.Stat(fullPath)
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) {
@@ -98,6 +108,17 @@ func (fHandler *fileHandler) GetHash(w http.ResponseWriter, r *http.Request) {
 	}
 
 	fullPath := path.Join(endpointPath, filePath)
+
+	isSubPath, err := utils.IsSubPath(endpointPath, fullPath)
+	if err != nil {
+		errh.Err(utils.ErrUnknown("error checking subpath: " + err.Error()))
+		return
+	}
+	if !isSubPath {
+		errh.Err(utils.ErrOutOfEndpoint(fileVar, endpoint))
+		return
+	}
+
 	fileInfo, err := os.Stat(fullPath)
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) {
@@ -159,8 +180,17 @@ func (fHandler *fileHandler) AddNew(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// FIXME !!!!IMPORTANT!!! find a way to filter paths using '..' to go out of endpoint
 	fullPath := path.Join(endpointPath, filePath)
+
+	isSubPath, err := utils.IsSubPath(endpointPath, fullPath)
+	if err != nil {
+		errh.Err(utils.ErrUnknown("error checking subpath: " + err.Error()))
+		return
+	}
+	if !isSubPath {
+		errh.Err(utils.ErrOutOfEndpoint(rawPath, endpoint))
+		return
+	}
 
 	fileStat, err := os.Stat(fullPath)
 	if errors.Is(err, os.ErrNotExist) {
