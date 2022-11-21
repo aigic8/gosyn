@@ -124,16 +124,16 @@ func TestEndpointGet(t *testing.T) {
 			assert.Equal(t, tc.Status, res.StatusCode)
 
 			if tc.Status == http.StatusOK {
-				data, err := io.ReadAll(res.Body)
+				resBody, err := io.ReadAll(res.Body)
 				if err != nil {
 					panic(err)
 				}
 
-				respTree := map[string]TreePath{}
-				if err = json.Unmarshal(data, &respTree); err != nil {
+				resData := APIResponse[EndpointGetResponse]{}
+				if err = json.Unmarshal(resBody, &resData); err != nil {
 					panic(err)
 				}
-				assert.DeepEqual(t, tc.Tree, respTree)
+				assert.DeepEqual(t, tc.Tree, resData.Data.Tree)
 			}
 		})
 	}
@@ -161,7 +161,7 @@ func TestEndpointGetAll(t *testing.T) {
 	defer res.Body.Close()
 	assert.Equal(t, http.StatusOK, res.StatusCode)
 
-	data, err := io.ReadAll(res.Body)
+	resBody, err := io.ReadAll(res.Body)
 	if err != nil {
 		panic(err)
 	}
@@ -170,9 +170,11 @@ func TestEndpointGetAll(t *testing.T) {
 	for endpoint := range endpoints {
 		expectedEndpoints = append(expectedEndpoints, endpoint)
 	}
-	resEndpoints := []string{}
-	json.Unmarshal(data, &resEndpoints)
-	assert.Equal(t, true, arrsAreEqual(expectedEndpoints, resEndpoints))
+	resData := APIResponse[EndpointGetAllResponse]{}
+	if err := json.Unmarshal(resBody, &resData); err != nil {
+		panic(err)
+	}
+	assert.Equal(t, true, arrsAreEqual(expectedEndpoints, resData.Data.Endpoints))
 }
 
 func mkDirs(base string, dirs []string) error {

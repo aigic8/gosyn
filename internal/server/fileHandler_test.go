@@ -3,6 +3,7 @@ package server
 import (
 	"encoding/binary"
 	"encoding/hex"
+	"encoding/json"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -141,7 +142,12 @@ func TestFileGetHash(t *testing.T) {
 					panic(err)
 				}
 
-				assert.Equal(t, tc.FileHash, string(resBody))
+				resData := APIResponse[FileGetHashResponse]{}
+				if err := json.Unmarshal(resBody, &resData); err != nil {
+					panic(err)
+				}
+
+				assert.Equal(t, tc.FileHash, resData.Data.Hash)
 			}
 		})
 	}

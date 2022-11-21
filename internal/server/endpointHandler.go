@@ -1,7 +1,6 @@
 package server
 
 import (
-	"encoding/json"
 	"fmt"
 	"net/http"
 	"os"
@@ -17,6 +16,16 @@ type endpointHanlder struct {
 	Endpoints map[string]string
 	logger    *utils.Logger
 }
+
+type (
+	EndpointGetAllResponse struct {
+		Endpoints []string `json:"endpoints"`
+	}
+
+	EndpointGetResponse struct {
+		Tree map[string]TreePath `json:"tree"`
+	}
+)
 
 // TODO maybe use pointers for LastMod and Size? since they can be empty
 type TreePath struct {
@@ -71,7 +80,7 @@ func (eHandler *endpointHanlder) Get(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	jsonData, err := json.Marshal(tree)
+	jsonData, err := wrapAPIResponse(EndpointGetResponse{Tree: tree})
 	if err != nil {
 		errh.Err(utils.ErrUnknown("error marshaling json: " + err.Error()))
 		return
@@ -87,7 +96,7 @@ func (eHandler *endpointHanlder) GetAll(w http.ResponseWriter, r *http.Request) 
 	for endpoint := range eHandler.Endpoints {
 		endpoints = append(endpoints, endpoint)
 	}
-	jsonData, err := json.Marshal(endpoints)
+	jsonData, err := wrapAPIResponse(EndpointGetAllResponse{Endpoints: endpoints})
 	if err != nil {
 		errh.Err(utils.ErrUnknown("error marshaling json: " + err.Error()))
 		return

@@ -20,6 +20,11 @@ type fileHandler struct {
 	logger      *utils.Logger
 }
 
+type FileGetHashResponse struct {
+	Hash string `json:"hash"`
+	File string `json:"file"`
+}
+
 func (fHandler *fileHandler) Get(w http.ResponseWriter, r *http.Request) {
 	errh := utils.NewAPIErrHandler(fHandler.logger, r, w)
 	vars := mux.Vars(r)
@@ -119,8 +124,12 @@ func (fHandler *fileHandler) GetHash(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// FIXME use json!!
-	w.Write([]byte(hash))
+	respJson, err := wrapAPIResponse(FileGetHashResponse{Hash: hash, File: fileVar})
+	if err != nil {
+		errh.Err(utils.ErrUnknown("error marshaling json: " + err.Error()))
+	}
+
+	w.Write(respJson)
 }
 
 func (fHandler *fileHandler) AddNew(w http.ResponseWriter, r *http.Request) {
@@ -195,12 +204,16 @@ func (fHandler *fileHandler) AddNew(w http.ResponseWriter, r *http.Request) {
 
 	defer r.Body.Close()
 	if _, err = io.Copy(file, r.Body); err != nil {
-		errh.Err(utils.ErrUnknown("error writing response: " + err.Error()))
+		errh.Err(utils.ErrUnknown("error writing to file: " + err.Error()))
 		return
 	}
 
-	// FIXME use json!!!!!
-	w.Write([]byte("OK"))
+	respJson, err := wrapAPIResponse(map[string]string{})
+	if err != nil {
+		errh.Err(utils.ErrUnknown("error marshaling json: " + err.Error()))
+		return
+	}
+	w.Write(respJson)
 }
 
 func splitEndpointAndFile(rawPath string) (string, string, error) {

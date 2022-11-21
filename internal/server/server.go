@@ -1,6 +1,7 @@
 package server
 
 import (
+	"encoding/json"
 	"net/http"
 	"time"
 
@@ -15,20 +16,15 @@ type Server struct {
 	MaxHashSize int64
 }
 
-// TODO response with ok true and false
-// type Response[T any] struct {
-// 	Ok   bool   `json:"ok"`
-// 	Err  string `json:"error"`
-// 	Data T      `json:"data"`
-// }
+type APIResponse[T any] struct {
+	Ok   bool `json:"ok"` // always true
+	Data T    `json:"data"`
+}
 
-// func errResponse(message string) *Response[map[bool]bool] {
-// 	return &Response[map[bool]bool]{
-// 		Ok:   true,
-// 		Err:  message,
-// 		Data: map[bool]bool{},
-// 	}
-// }
+func wrapAPIResponse[T any](data T) ([]byte, error) {
+	resp := APIResponse[T]{Ok: true, Data: data}
+	return json.Marshal(&resp)
+}
 
 func NewServer(addr string, endpoints map[string]string) *Server {
 	return &Server{
