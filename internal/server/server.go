@@ -3,8 +3,10 @@ package server
 import (
 	"encoding/json"
 	"net/http"
+	"strings"
 	"time"
 
+	"github.com/aigic8/gosyn/internal/server/log"
 	"github.com/gorilla/mux"
 )
 
@@ -64,4 +66,42 @@ func (server *Server) makeRoutes() *mux.Router {
 	// TODO r.HandleFunc("files/{file}/smart", fHandler.SmartGet).Methods.(http.MethodGet)
 
 	return r
+}
+
+// TODO add testing
+// TODO is it ok to save tokens in memory?
+type AuthMiddleware struct {
+	Tokens map[string]bool
+	logger *log.Logger
+}
+
+func (mid *AuthMiddleware) AuthMiddleware(h http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		errh := log.NewAPIErrHandler(mid.logger, r, w)
+		authHeader := strings.TrimSpace(r.Header.Get("Authurization"))
+
+		if authHeader == "" {
+			errh.Warn(log.ErrUnauthorized())
+			return
+		}
+
+		headerParts := strings.SplitN(authHeader, " ", 2)
+		if len(headerParts) < 2 {
+			errh.Warn(log.ErrBadAuth(authHeader))
+			return
+		}
+
+		if headerParts[0] != "Berear" {
+			errh.Warn(log.ErrBadAuth(authHeader))
+			return
+		}
+
+		// TODO maybe use a smarter authentication like jwt?
+		if _, ok := mid.Tokens[headerParts[1]]; !ok {
+			errh.Warn(log.ErrInvalidToken(headerParts[1]))
+			return
+		}
+
+		h.ServeHTTP(w, r)
+	})
 }

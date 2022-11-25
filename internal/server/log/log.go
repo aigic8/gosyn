@@ -177,3 +177,27 @@ func ErrOutOfEndpoint(path string, endpoint string) HTTPErr {
 		logMsg:  msg,
 	}
 }
+
+func ErrBadAuth(authHeader string) HTTPErr {
+	return &BasicHTTPErr{
+		status:  http.StatusBadRequest,
+		respMsg: "authentication failed",
+		logMsg:  "auth failed, auth header: " + authHeader,
+	}
+}
+
+func ErrInvalidToken(token string) HTTPErr {
+	return &BasicHTTPErr{
+		status:  http.StatusUnauthorized,
+		respMsg: "token is invalid",
+		logMsg:  "invalid token: '" + token + "'",
+	}
+}
+
+func ErrUnauthorized() HTTPErr {
+	return &BasicHTTPErr{
+		status:  http.StatusUnauthorized,
+		respMsg: "can not access content",
+		logMsg:  "user is not authorized",
+	}
+}
